@@ -1,6 +1,28 @@
-# Create .gitignore
-echo "target/
+# Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.logs
+.mvn/
+
+# IDE
 .idea/
 *.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# Mac
 .DS_Store
-.vscode/" > .gitignore
+
+# Logs
+*.log
+log/
+logs/
+
+# Test reports
+test-output/
+cucumber-reports/
