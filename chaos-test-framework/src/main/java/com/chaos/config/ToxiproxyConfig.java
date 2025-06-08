@@ -1,29 +1,23 @@
 package com.chaos.config;
 
-import io.github.kanro.moka.Toxiproxy;
-import io.github.kanro.moka.Proxy;
+import eu.rekawek.toxiproxy.Proxy;
+import eu.rekawek.toxiproxy.ToxiproxyClient;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
+@Slf4j
+@Configuration
 public class ToxiproxyConfig {
-    
-    private Toxiproxy toxiproxy;
 
-    public ToxiproxyConfig(String host, int port) {
-        this.toxiproxy = new Toxiproxy(host, port);
+    @Bean
+    public ToxiproxyClient toxiproxyClient(ToxiproxyProperties properties) {
+        return new ToxiproxyClient(properties.getHost(), properties.getPort());
     }
 
-    public Proxy createProxy(String name, String upstream) {
-        return toxiproxy.createProxy(name, upstream);
-    }
-
-    public void deleteProxy(String name) {
-        toxiproxy.deleteProxy(name);
-    }
-
-    public void resetProxies() {
-        toxiproxy.reset();
-    }
-
-    public void close() {
-        toxiproxy.close();
+    @Bean
+    public Proxy storeApiProxy(ToxiproxyClient client, ToxiproxyProperties properties) throws Exception {
+        ToxiproxyProperties.ProxyConfig config = properties.getProxies().get("store-api");
+        return client.createProxy("store-api", config.getListen(), config.getUpstream());
     }
 }

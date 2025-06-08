@@ -3,11 +3,13 @@ package com.chaos.proxy;
 import eu.rekawek.toxiproxy.Proxy;
 import eu.rekawek.toxiproxy.ToxiproxyClient;
 import eu.rekawek.toxiproxy.model.ToxicDirection;
+import com.chaos.config.ToxiproxyProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import com.chaos.config.ToxiproxyProperties;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
+import java.util.HashMap;
 
 @Slf4j
 @Component
@@ -106,14 +108,15 @@ public class ProxyManager {
     public Map<String, Proxy> listProxies() {
         try {
             Map<String, Proxy> proxies = new HashMap<>();
-            toxiproxyClient.getProxies().forEach(proxy -> proxies.put(proxy.getName(), proxy));
+            toxiproxyClient.getProxies().forEach(proxy -> 
+                proxies.put(proxy.getName(), proxy));
             return proxies;
         } catch (IOException e) {
             log.error("Failed to list proxies", e);
             throw new RuntimeException("Failed to list proxies", e);
         }
     }
-
+    
     private Proxy getProxy(String proxyName) {
         Proxy proxy = activeProxies.get(proxyName);
         if (proxy == null) {
