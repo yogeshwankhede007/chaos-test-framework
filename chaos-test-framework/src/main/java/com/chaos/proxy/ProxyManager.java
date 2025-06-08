@@ -3,11 +3,10 @@ package com.chaos.proxy;
 import eu.rekawek.toxiproxy.Proxy;
 import eu.rekawek.toxiproxy.ToxiproxyClient;
 import eu.rekawek.toxiproxy.model.ToxicDirection;
-import com.chaos.config.ToxiproxyProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.HashMap;
 
@@ -16,116 +15,80 @@ import java.util.HashMap;
 public class ProxyManager {
     
     private final ToxiproxyClient toxiproxyClient;
-    private final ToxiproxyProperties properties;
-    private final Map<String, Proxy> activeProxies;
+    private final Map<String, Proxy> proxies;
 
-    public ProxyManager(ToxiproxyProperties properties) {
-        this.properties = properties;
-        this.toxiproxyClient = new ToxiproxyClient(properties.getHost(), properties.getPort());
-        this.activeProxies = new ConcurrentHashMap<>();
-        initializeProxies();
+    public ProxyManager(String host, int port) {
+        this.toxiproxyClient = new ToxiproxyClient(host, port);
+        this.proxies = new HashMap<>();
     }
 
-    public Proxy createProxy(String proxyName, String listen, String upstream) {
-        try {
-            Proxy proxy = toxiproxyClient.createProxy(proxyName, listen, upstream);
-            activeProxies.put(proxyName, proxy);
-            log.info("Created proxy: {} listening on {} forwarding to {}", proxyName, listen, upstream);
-            return proxy;
-        } catch (IOException e) {
-            log.error("Failed to create proxy: {}", proxyName, e);
-            throw new RuntimeException("Failed to create proxy", e);
-        }
-    }
-
-    public void addLatency(String proxyName, long latencyMs) {
-        try {
-            Proxy proxy = getProxy(proxyName);
-            proxy.toxics()
-                 .latency("latency_downstream", ToxicDirection.DOWNSTREAM, latencyMs)
-                 .setJitter(latencyMs / 10)
-                 .setToxicity(1.0f);
-            log.info("Added latency of {}ms to proxy: {}", latencyMs, proxyName);
-        } catch (IOException e) {
-            log.error("Failed to add latency to proxy: {}", proxyName, e);
-            throw new RuntimeException("Failed to add latency", e);
-        }
-    }
-
-    public void simulateNetworkFailure(String proxyName) {
-        try {
-            Proxy proxy = getProxy(proxyName);
-            proxy.disable();
-            log.info("Simulated network failure for proxy: {}", proxyName);
-        } catch (IOException e) {
-            log.error("Failed to simulate network failure for proxy: {}", proxyName, e);
-            throw new RuntimeException("Failed to simulate network failure", e);
-        }
-    }
-
-    public void addBandwidthLimitation(String proxyName, long rate) {
-        try {
-            Proxy proxy = getProxy(proxyName);
-            proxy.toxics()
-                 .bandwidth("bandwidth_downstream", ToxicDirection.DOWNSTREAM, rate);
-            log.info("Added bandwidth limitation of {} bytes/s to proxy: {}", rate, proxyName);
-        } catch (IOException e) {
-            log.error("Failed to add bandwidth limitation to proxy: {}", proxyName, e);
-            throw new RuntimeException("Failed to add bandwidth limitation", e);
-        }
-    }
-
-    public void resetProxy(String proxyName) {
-        try {
-            Proxy proxy = getProxy(proxyName);
-            proxy.enable();
+    public void reset(String proxyName) throws IOException {
+        Proxy proxy = getProxy(proxyName);
+        if (proxy != null) {
             proxy.toxics().getAll().forEach(toxic -> {
                 try {
                     toxic.remove();
                 } catch (IOException e) {
-                    log.error("Failed to remove toxic from proxy: {}", proxyName, e);
+                    throw new RuntimeException("Failed to remove toxic", e);
                 }
             });
             log.info("Reset proxy: {}", proxyName);
-        } catch (IOException e) {
-            log.error("Failed to reset proxy: {}", proxyName, e);
-            throw new RuntimeException("Failed to reset proxy", e);
         }
     }
 
-    public void teardownProxy(String proxyName) {
+    public void simulateChaos(String proxyName, ChaosType chaosType, Map<String, Object> params) {
         try {
             Proxy proxy = getProxy(proxyName);
-            proxy.delete();
-            activeProxies.remove(proxyName);
-            log.info("Removed proxy: {}", proxyName);
+            switch (chaosType) {
+                case LATENCY:
+                    addLatencyToxic(proxy, params);
+                    break;
+                case BANDWIDTH:
+                    addBandwidthToxic(proxy, params);
+                    break;
+                case PACKET_LOSS:
+                    addPacketLossToxic(proxy, params);
+                    break;
+                case TIMEOUT:
+                    addTimeoutToxic(proxy, params);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported chaos type: " + chaosType);
+            }
         } catch (IOException e) {
-            log.error("Failed to teardown proxy: {}", proxyName, e);
-            throw new RuntimeException("Failed to teardown proxy", e);
+            log.error("Failed to simulate chaos: {}", e.getMessage());
+            throw new RuntimeException("Chaos simulation failed", e);
         }
     }
 
-    public Map<String, Proxy> listProxies() {
-        try {
-            Map<String, Proxy> proxies = new HashMap<>();
-            toxiproxyClient.getProxies().forEach(proxy -> 
-                proxies.put(proxy.getName(), proxy));
-            return proxies;
-        } catch (IOException e) {
-            log.error("Failed to list proxies", e);
-            throw new RuntimeException("Failed to list proxies", e);
-        }
-    }
-    
-    private Proxy getProxy(String proxyName) {
-        Proxy proxy = activeProxies.get(proxyName);
-        if (proxy == null) {
-            throw new IllegalStateException("Proxy not found: " + proxyName);
-        }
-        return proxy;
+    private void addLatencyToxic(Proxy proxy, Map<String, Object> params) throws IOException {
+        Long latency = (Long) params.get("latency");
+        Double jitter = (Double) params.getOrDefault("jitter", 0.0);
+        proxy.toxics().latency("latency_toxic", ToxicDirection.DOWNSTREAM, latency)
+             .setJitter(jitter.longValue());
     }
 
-    private void initializeProxies() {
-        // Initialization logic if needed
+    private void addBandwidthToxic(Proxy proxy, Map<String, Object> params) throws IOException {
+        Long rate = (Long) params.get("rate");
+        proxy.toxics().bandwidth("bandwidth_toxic", ToxicDirection.DOWNSTREAM, rate);
+    }
+
+    private void addPacketLossToxic(Proxy proxy, Map<String, Object> params) throws IOException {
+        Integer percentage = (Integer) params.get("percentage");
+        long bytes = 100; // Default value for data limit
+        proxy.toxics().limitData("packet_loss_toxic", ToxicDirection.DOWNSTREAM, bytes)
+             .setToxicity(percentage.floatValue() / 100);
+    }
+
+    private void addTimeoutToxic(Proxy proxy, Map<String, Object> params) throws IOException {
+        Long timeout = (Long) params.get("timeout");
+        proxy.toxics().timeout("timeout_toxic", ToxicDirection.DOWNSTREAM, timeout);
+    }
+
+    private Proxy getProxy(String name) throws IOException {
+        if (!proxies.containsKey(name)) {
+            proxies.put(name, toxiproxyClient.getProxy(name));
+        }
+        return proxies.get(name);
     }
 }

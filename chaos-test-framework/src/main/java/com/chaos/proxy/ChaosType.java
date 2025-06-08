@@ -1,6 +1,10 @@
+package com.chaos.proxy;
+
 public enum ChaosType {
     LATENCY,
-    PACKET_LOSS,
     BANDWIDTH,
-    TIMEOUT
+    PACKET_LOSS,
+    TIMEOUT,
+    RESET_PEER,
+    SLOW_CLOSE
 }
