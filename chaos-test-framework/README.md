@@ -51,7 +51,7 @@ docker --version
 
 ```bash
 # Clone the repository
-git clone https://github.com/username/chaos-testing-toxiproxy.git
+git clone https://github.com/yogeshwankhede007/chaos-testing-toxiproxy.git
 cd chaos-testing-toxiproxy
 
 # Start Toxiproxy container
@@ -155,7 +155,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Authors
 
-- **Your Name** - *Initial work* - [@yourusername](https://github.com/yourusername)
+- **Your Name** - *Initial work* - [@yogeshwankhede007](https://github.com/yogeshwankhede007)
 
 ---
 
